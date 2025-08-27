@@ -1,0 +1,391 @@
+<script>
+  // Check login before showing dashboard
+  if(localStorage.getItem("loggedIn") !== "true"){
+    window.location.href = "index.html";
+  }
+</script>
+
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aesh — Spending Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  
+  
+  <style>
+    :root{
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #0ea5a4;
+      --danger: #ef4444;
+    }
+    [data-theme='dark']{
+      --bg: #0b1220;
+      --card: #0f1724;
+      --muted: #94a3b8;
+      color: #e6eef6;
+    }
+    body{ background: var(--bg); font-family: Inter, system-ui, Arial; }
+    .card { background: var(--card); }
+    .small-muted{ color: var(--muted); font-size: .9rem }
+    .avatar{ width:72px; height:72px; border-radius:50%; object-fit:cover; }
+    .category-badge{ padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem }
+    .table-wrap{ max-height:380px; overflow:auto }
+    .pointer{ cursor:pointer }
+    @media (max-width:768px){ .dashboard-cards .col{ margin-bottom:0.75rem } }
+    .table-wrap::-webkit-scrollbar{ width:8px }
+    .table-wrap::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.12); border-radius:8px }
+    @media (max-width: 768px) { .table-wrap { display: none; } #expenseCards { display: block; } }
+    @media (min-width: 769px) { #expenseCards { display: none; } }
+    .expense-card { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .expense-card .label { font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body data-theme="light">
+
+
+
+
+<div class="container py-4">
+  <div class="card p-3 mb-4 shadow-sm">
+    <div class="d-flex align-items-center flex-wrap gap-3">
+      <img id="avatarImg" class="avatar border" src="avatar.png" alt="avatar">
+      <div class="flex-grow-1">
+        <h4 id="fullName" class="mb-0">Aesh Goswami</h4>
+        <div class="small-muted">Russia 🇷🇺 &middot; Date of birth: 29 Jan 2004</div>
+        <div class="small-muted">Spending Tracker</div>
+      </div>
+      <div class="text-end ms-auto">
+        <div>
+          <label class="form-label small-muted mb-1">Monthly Budget</label>
+          <div class="input-group input-group-sm">
+            <input id="budgetInput" type="number" class="form-control form-control-sm" placeholder="e.g., 20000" min="0">
+            <button id="setBudgetBtn" class="btn btn-primary btn-sm">Set</button>
+          </div>
+        </div>
+        <button id="themeToggle" class="btn btn-outline-secondary btn-sm mt-2">Dark</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row dashboard-cards g-3 mb-3">
+    <div class="col-12 col-md-3">
+      <div class="card p-3 h-100 shadow-sm">
+        <div class="small-muted">Total (This Month)</div>
+        <div id="cardTotal" class="h4 mt-2">₹0</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card p-3 h-100 shadow-sm">
+        <div class="small-muted">Top Category</div>
+        <div id="cardTopCat" class="h6 mt-2">—</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card p-3 h-100 shadow-sm">
+        <div class="small-muted">Spending Days</div>
+        <div id="cardDays" class="h6 mt-2">0 days</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card p-3 h-100 shadow-sm">
+        <div class="small-muted">Budget Left</div>
+        <div id="cardBudgetLeft" class="h6 mt-2">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Expense + Filters -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-lg-5">
+      <div class="card p-3 shadow-sm">
+        <h6 class="mb-3">Add Expense (Only for you)</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Date</label>
+            <input id="inpDate" type="date" class="form-control">
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Category</label>
+            <select id="inpCategory" class="form-select">
+              <option>Food</option>
+              <option>Transport</option>
+              <option>Books</option>
+              <option>Rent</option>
+              <option>Shopping</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Item</label>
+            <input id="inpItem" type="text" class="form-control" placeholder="e.g., Lunch at canteen">
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Amount (Rub)</label>
+            <input id="inpAmount" type="number" class="form-control" placeholder="e.g., 250" min="0">
+          </div>
+          <div class="col-12 text-end">
+            <button id="addBtn" class="btn btn-success">Add Expense</button>
+            <button id="clearBtn" class="btn btn-outline-secondary">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+      <div class="card p-3 shadow-sm">
+        <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <input id="searchInput" class="form-control form-control-sm" placeholder="Search item or category">
+            <select id="monthSelect" class="form-select form-select-sm" style="width:170px">
+              <option value="all">All months</option>
+            </select>
+            <select id="categoryFilter" class="form-select form-select-sm" style="width:150px">
+              <option value="all">All categories</option>
+              <option>Food</option>
+              <option>Transport</option>
+              <option>Books</option>
+              <option>Rent</option>
+              <option>Shopping</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="exportCSV" class="btn btn-outline-primary btn-sm">Export CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table + Charts -->
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card p-3 shadow-sm h-100">
+        <h6>Expenses</h6>
+        <div class="table-wrap mt-2">
+          <table class="table table-borderless table-hover mb-0">
+            <thead>
+              <tr class="small-muted">
+                <th class="pointer" data-sort="date">Date</th>
+                <th>Item</th>
+                <th class="pointer" data-sort="amount">Amount</th>
+                <th>Category</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="expenseCards"></div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card p-3 shadow-sm h-100">
+        <h6>Analytics</h6>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <canvas id="pieChart" height="200"></canvas>
+          </div>
+          <div class="col-12 col-md-6">
+            <canvas id="barChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-4 small-muted">Website created by Aesh Goswami | MBBS in Russia</div>
+</div>
+
+<script>
+const SHEETDB_API = "https://sheetdb.io/api/v1/hp893c7lkcsry";
+let expenses = [];
+let currentSort = { field: 'date', dir: 'desc' };
+let pieChart, barChart;
+let monthlyBudget = Number(localStorage.getItem('monthlyBudget') || 0);
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function formatCurrency(n){ return '₽ ' + Number(n||0).toLocaleString(); }
+function emojiFor(cat){
+  switch(cat){
+    case 'Food': return '🥗';
+    case 'Transport': return '🚕';
+    case 'Books': return '📚';
+    case 'Rent': return '🏠';
+    case 'Shopping': return '🛍️';
+    default: return '💡';
+  }
+}
+function saveBudget(){ localStorage.setItem('monthlyBudget', monthlyBudget); }
+
+async function fetchExpenses() {
+  try {
+    const res = await fetch(SHEETDB_API);
+    if (!res.ok) throw new Error('Network response not ok');
+    const data = await res.json();
+    expenses = data.map(e=>({ date:e.date, item:e.item, amount:Number(e.amount), category:e.category }));
+    renderAll();
+  } catch (e) {
+    console.error("Fetch error", e);
+    alert("Cannot fetch SheetDB data. Check API URL or Sheet permissions.");
+  }
+}
+
+function renderMonthOptions(){
+  const sel = document.getElementById('monthSelect');
+  const months = new Set(expenses.map(e=>{ const d=new Date(e.date); return `${d.getFullYear()}-${d.getMonth()}`; }));
+  sel.innerHTML = '<option value="all">All months</option>';
+  Array.from(months).sort((a,b)=>b.localeCompare(a)).forEach(m=>{
+    const [y,mon]=m.split('-'); sel.innerHTML+=`<option value="${m}">${MONTH_NAMES[Number(mon)]} ${y}</option>`;
+  });
+}
+
+function renderTable(){
+  const tbody = document.getElementById('tableBody');
+  const cardWrap = document.getElementById('expenseCards');
+  tbody.innerHTML = ''; cardWrap.innerHTML = '';
+
+  const search = (document.getElementById('searchInput').value || '').toLowerCase();
+  const monthFilter = document.getElementById('monthSelect').value;
+  const catFilter = document.getElementById('categoryFilter').value;
+
+  let filtered = expenses.filter(e=>{
+    if(search && !(e.item.toLowerCase().includes(search) || e.category.toLowerCase().includes(search))) return false;
+    if(catFilter!=='all' && e.category!==catFilter) return false;
+    if(monthFilter!=='all'){ const [y,m]=monthFilter.split('-'); const d=new Date(e.date); if(d.getFullYear()!=y||d.getMonth()!=m) return false; }
+    return true;
+  });
+
+  filtered.sort((a,b)=>{
+    if(currentSort.field==='date') return currentSort.dir==='asc'?new Date(a.date)-new Date(b.date):new Date(b.date)-new Date(a.date);
+    return currentSort.dir==='asc'?a.amount-b.amount:b.amount-a.amount;
+  });
+
+  filtered.forEach(e=>{
+    tbody.innerHTML+=`<tr><td>${e.date}</td><td>${e.item}</td><td>${formatCurrency(e.amount)}</td><td>${emojiFor(e.category)} ${e.category}</td></tr>`;
+    cardWrap.innerHTML+=`<div class="expense-card"><div><span class="label">📅 Date:</span> ${e.date}</div><div><span class="label">📝 Item:</span> ${e.item}</div><div><span class="label">💰 Amount:</span> ${formatCurrency(e.amount)}</div><div><span class="label">🏷️ Category:</span> ${emojiFor(e.category)} ${e.category}</div></div>`;
+  });
+}
+
+function renderCards(){
+  const monthSel = document.getElementById('monthSelect').value;
+  const now = new Date();
+  let monthKey = monthSel==='all'?`${now.getFullYear()}-${now.getMonth()}`:monthSel;
+  const monthExpenses = expenses.filter(e=>{ const d=new Date(e.date); return `${d.getFullYear()}-${d.getMonth()}`===monthKey; });
+  const total = monthExpenses.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('cardTotal').innerText=formatCurrency(total);
+
+  const catMap={}; monthExpenses.forEach(e=>catMap[e.category]=(catMap[e.category]||0)+e.amount);
+  const topCat = Object.keys(catMap).length?Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]:null;
+  document.getElementById('cardTopCat').innerText=topCat?`${topCat[0]} — ${formatCurrency(topCat[1])}`:'—';
+
+  const days = new Set(monthExpenses.map(e=>e.date)).size;
+  document.getElementById('cardDays').innerText=`${days} days`;
+
+  const left = monthlyBudget-total;
+  const budgetEl=document.getElementById('cardBudgetLeft');
+  budgetEl.innerText=formatCurrency(left);
+  budgetEl.style.color=left<0?'var(--danger)':'';
+}
+
+function renderCharts(){
+  const monthSel = document.getElementById('monthSelect').value;
+  const monthKey = monthSel==='all'?null:monthSel;
+  const filtered = expenses.filter(e=>{ if(!monthKey) return true; const [y,m]=monthKey.split('-'); const d=new Date(e.date); return d.getFullYear()==y && d.getMonth()==m; });
+
+  const catMap={}, dayMap={};
+  filtered.forEach(e=>{ catMap[e.category]=(catMap[e.category]||0)+e.amount; dayMap[e.date]=(dayMap[e.date]||0)+e.amount; });
+
+  const pieCtx=document.getElementById('pieChart');
+  if(pieChart) pieChart.destroy();
+  pieChart=new Chart(pieCtx,{ type:'pie', data:{ labels:Object.keys(catMap), datasets:[{data:Object.values(catMap)}] }, options:{plugins:{legend:{position:'bottom'}}}});
+
+  const barCtx=document.getElementById('barChart');
+  const barLabels=Object.keys(dayMap).sort((a,b)=>new Date(a)-new Date(b));
+  const barData=barLabels.map(d=>dayMap[d]);
+  if(barChart) barChart.destroy();
+  barChart=new Chart(barCtx,{ type:'bar', data:{ labels:barLabels, datasets:[{label:'Amount',data:barData}] }, options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:45}}}}});
+}
+
+function renderAll(){ renderMonthOptions(); renderTable(); renderCards(); renderCharts(); }
+
+function addExpense(){
+  const date=document.getElementById('inpDate').value;
+  const item=document.getElementById('inpItem').value.trim();
+  const amount=Number(document.getElementById('inpAmount').value);
+  const category=document.getElementById('inpCategory').value;
+  if(!date||!item||!amount){ alert('Please fill date, item, amount'); return; }
+  expenses.push({ date, item, amount, category });
+  renderAll(); clearForm();
+}
+
+function clearForm(){ const today = new Date().toISOString().slice(0,10); document.getElementById('inpDate').value=today; document.getElementById('inpItem').value=''; document.getElementById('inpAmount').value=''; }
+
+document.getElementById('addBtn').addEventListener('click', addExpense);
+document.getElementById('clearBtn').addEventListener('click', clearForm);
+document.getElementById('searchInput').addEventListener('input', renderTable);
+document.getElementById('categoryFilter').addEventListener('change', renderTable);
+document.getElementById('monthSelect').addEventListener('change', renderAll);
+document.querySelectorAll('th[data-sort]').forEach(th=>{ th.addEventListener('click', ()=>{ const field = th.getAttribute('data-sort'); currentSort.field===field?currentSort.dir=currentSort.dir==='asc'?'desc':'asc':currentSort={field,dir:'asc'}; renderTable(); }); });
+
+document.getElementById('setBudgetBtn').addEventListener('click', ()=>{
+  monthlyBudget=Number(document.getElementById('budgetInput').value||0);
+  saveBudget();
+  renderCards();
+});
+
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  document.body.dataset.theme=document.body.dataset.theme==='light'?'dark':'light';
+});
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('budgetInput').value=monthlyBudget;
+  clearForm();
+  fetchExpenses();
+});
+
+
+async function addExpense(){
+  const date = document.getElementById('inpDate').value;
+  const item = document.getElementById('inpItem').value.trim();
+  const amount = Number(document.getElementById('inpAmount').value);
+  const category = document.getElementById('inpCategory').value;
+
+  if(!date || !item || !amount){
+    alert('Please fill date, item, amount');
+    return;
+  }
+
+  const newExpense = { date, item, amount, category };
+
+  try {
+    // Send to SheetDB
+    const res = await fetch(SHEETDB_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: newExpense })
+    });
+    if(!res.ok) throw new Error('Failed to save to SheetDB');
+
+    // Add to local array and re-render
+    expenses.push(newExpense);
+    renderAll();
+    clearForm();
+  } catch(e) {
+    console.error("Error saving to SheetDB:", e);
+    alert("Expense could not be saved to SheetDB.");
+  }
+}
+
+</script>
+
+</body>
+</html>
