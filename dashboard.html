@@ -1,4 +1,9 @@
-
+<script>
+  // Check login before showing dashboard
+  if(localStorage.getItem("loggedIn") !== "true"){
+    window.location.href = "index.html";
+  }
+</script>
 
 
 
@@ -226,13 +231,28 @@ async function fetchExpenses() {
     const res = await fetch(SHEETDB_API);
     if (!res.ok) throw new Error('Network response not ok');
     const data = await res.json();
-    expenses = data.map(e=>({ date:e.date, item:e.item, amount:Number(e.amount), category:e.category }));
+
+    expenses = data.map(e=>{
+      let dateVal = e.date;
+      // If it’s a number (like 45698), convert it
+      if(!isNaN(Number(dateVal))) {
+        dateVal = sheetDateToISO(Number(dateVal));
+      }
+      return {
+        date: dateVal,
+        item: e.item,
+        amount: Number(e.amount),
+        category: e.category
+      };
+    });
+
     renderAll();
   } catch (e) {
     console.error("Fetch error", e);
     alert("Cannot fetch SheetDB data. Check API URL or Sheet permissions.");
   }
 }
+
 
 function renderMonthOptions(){
   const sel = document.getElementById('monthSelect');
@@ -290,6 +310,16 @@ function renderCards(){
   budgetEl.innerText=formatCurrency(left);
   budgetEl.style.color=left<0?'var(--danger)':'';
 }
+
+
+
+// Convert Google Sheets serial date → YYYY-MM-DD
+function sheetDateToISO(serial){
+  const epoch = new Date(1899, 11, 30); // Excel/Sheets base date
+  const d = new Date(epoch.getTime() + serial * 24*60*60*1000);
+  return d.toISOString().slice(0,10);  // "YYYY-MM-DD"
+}
+
 
 function renderCharts(){
   const monthSel = document.getElementById('monthSelect').value;
@@ -384,4 +414,3 @@ async function addExpense(){
 
 </body>
 </html>
-
